@@ -1,36 +1,5 @@
 const INIT = 'init';
-const TIMEOUT = 'timeout';
-
-function Element (queue, listeners, params) {
-  this.queue = queue;
-  this.listeners = listeners;
-  this.params = params;
-
-  this.timeout = null;
-}
-Element.prototype.setTimeout = function (delay, message) {
-  this.clearTimeout();
-  const element = this;
-  this.timeout = {
-    delay: delay,
-    callback: function () {
-      element.queue.trigger(TIMEOUT, message);
-    }
-  };
-  this.timeout.id = setTimeout(this.timeout.callback, delay);
-};
-Element.prototype.resetTimeout = function () {
-  if (this.timeout) {
-    clearTimeout(this.timeout.id);
-    setTimeout(this.timeout.callback, this.timeout.delay);
-  }
-};
-Element.prototype.clearTimeout = function () {
-  if (this.timeout) {
-    clearTimeout(this.timeout.id);
-    this.timeout = null;
-  }
-};
+const Element = require('./element.js');
 
 function Queue () {
   this.queue = [];
@@ -44,12 +13,14 @@ Queue.prototype.push = function (listeners = {}, params) {
   return element;
 };
 Queue.prototype.trigger = function (eventName, data) {
-  this.queue[0]
+  return this.queue[0]
     && this.queue[0].listeners[eventName] instanceof Function
-    && this.queue[0].listeners[eventName].call(this.queue[0], data);
+    && this.queue[0].listeners[eventName].call(this.queue[0], data)
+    || null;
 };
 Queue.prototype.next = function (data) {
-  this.queue.shift();
+  const element = this.queue.shift();
+  element && element.clearTimeout();
   this.queue[0] ? this.trigger(INIT, data) : (this.onEnd && this.onEnd(data));
 };
 Queue.prototype.clear = function () {
