@@ -1,0 +1,259 @@
+#mbr-queue
+
+Simple asynchronous queue manager. Main purpose is to be used for network packet management.
+But it still can solve various tasks other than that.
+
+## Principles
+
+Queue is a main instance managing all the process. All external processes communicate with this instance,
+not with certain operations in queue.
+When external process triggers some event, Queue instance registers it and send it to currently active operation,
+which should decide how to deal whith each event type. After current operation decides whether its job is done,
+it can pass control to the next operation in queue.
+
+## Queue instance
+
+Queue instance is an entry point and communicate interface for external processes.
+Constructor doesn't accept any arguments.
+
+```
+const queue = new Queue();
+```
+
+### queue.push
+
+```
+queue.push(listeners, params?);
+```
+
+Create and add new Element instance to the end of queue. This instance is also being returned as function result.
+If newly added element is an only element in queue, then it's `init` event listener is instantly being triggered.
+
+*listeners* - list of event listeners (@see element.listeners).
+
+*params* - set of initial operation parameters (@see element.params).
+
+*returns* new operation (Element instance) added to the queue.
+
+### queue.trigger
+
+```
+queue.trigger(eventType, data?);
+```
+
+Triggers event listener (defined by `eventType`) of currently active operation. `data` argument is being passed
+to that listener as an argument.
+
+*eventType* - event type to be triggered.
+
+*data* - data that is being passed as a listener's argument.
+
+### queue.next
+```
+queue.next(data?);
+```
+
+Current operation is done. Move current Element instance away from queue and pass control to the next one, triggering
+it's `init` event listener with `data` as an argument, if `data` was provided.
+
+*data* - optional data that can be sent to next Element instance.
+
+### queue.clear
+```
+queue.clear();
+```
+
+Simply clears all elements from queue. Usually in case of an error.
+
+### queue.isEmpty
+
+```
+const isEmpty = queue.isEmpty();
+```
+
+Checks if queue is empty or not. Returns `true` or `false` accordingly.
+
+### queue.onEnd
+
+```
+queue.onEnd = function (data) { ... };
+```
+
+Callback is being called when queue.next() is called, but there is no more elements in queue.
+
+`data` is a parameter passed to `queue.next` method as an argument.
+
+## Element instance
+
+Operations in queue are Element instances.
+
+```
+const element = queue.push(listeners, params); // both arguments described in `query.push` section
+```
+
+### element.queue
+
+Link to the element's queue to gain access to it's methods.
+
+### element.params
+
+Element params are set of static or dynamic data of this Element instance. Something like local storage.
+Initial values can be passed as second argument to `queue.push` method, and also can be added or altered
+in any event listener function.
+
+### element.listeners
+
+Each element in queue has it's own set of event listeners. They are being passed as first argument to
+`queue.push` method. This is an object with types as keys and function callbacks as values:
+
+```
+const listeners = {
+  /* Standard event types. */
+  init: function (data) {
+    // Initial action.
+  },
+  timeout: function (message) {
+    // Action on timeout.
+  },
+
+  /* Custom event types. */
+};
+```
+
+Two given events are standard ones: `init` event triggers at the moment previous element leaves the queue and this
+element is becoming current; `timeout` event triggers when `element.setTimeout` method was set, and timeout has expired.
+All other events are custom. They can be defined and triggered by your will.
+
+When queue triggers event of some type it makes its way into correspondant listener of current Element instance,
+which in its turn should decide how to deal with this event. Some data may be passed into callback as an argument,
+and function context (`this`) is a link to current Element in queue.
+
+It's a good idea to keep each set of event listeners in separated file, as distinct operation type.
+
+### element.setTimeout
+
+```
+element.setTimeout(delay, message?);
+```
+
+Set timeout for current operation. If given time has passed, then `timeout` event is being triggered.
+
+At the same time only one timeout is allowed. The next timer that been set clears previous one without triggering
+`timeout` event.
+
+*delay* - time before `timeout` event is triggered, in milliseconds.
+
+*message* - data that will be passed as an argument to `timeout` event listener.
+
+### element.resetTimeout
+
+```
+element.resetTimeout();
+```
+
+Restart timeout that was set earlier without triggering `timeout` event.
+
+### element.clearTimeout
+
+```
+element.clearTimeout();
+```
+
+Stops current timeout without triggering `timeout` event.
+Timeout is also being cleared when current element leaves it's queue.
+
+## One 'close to real' example.
+
+Event listeners is actualy the main structure block in all this mess. So let's start with it.
+
+*./operation.js*
+
+```
+module.exports = {
+  // This event will be triggered when element became current in its queue.
+  init: function () {
+    try {
+      // Send some data to network socket.
+      this.params.socket.write(this.params.command);
+      // Set timeout for server response in case of network problems.
+      this.setTimeout(5000, 'Server did not respond in time');
+    } catch (error) {
+      // If there was problem with writing into socket (connection interrupted), then trigger error.
+      this.queue.trigger(error);
+    }
+  },
+
+  // Timeout will be triggered if server did not respond in time.
+  timeout: function (message) {
+    this.queue.trigger(error, new Error(message));
+  },
+
+  // Event to be triggered if server respond with some data.
+  data: function (data) {
+    this.params.data += data;
+
+    if (/* check if data is complete */) {
+      if (/* check if some part of server response points to error */) {
+        this.queue.trigger('error', new Error(this.params.data));
+      } else {
+        this.queue.trigger('success', this.params.data);
+      }
+    } else {
+      // Response is incomlete. Wait for next chunk and restart timer.
+      this.resetTimeout();
+    }
+  },
+
+  // Event triggered in case of error.
+  error: function (error) {
+    // Display error.
+    console.error('Error occured:', error);
+
+    // Clear queue, because process failed.
+    this.queue.clear();
+    // Tell to queue that this element has done its job.
+    this.queue.next();
+  },
+
+  // Event triggered in case of success.
+  success: function (data) {
+    // Display successfull result.
+    console.log('Operation success:', data);
+
+    // Tell to queue that this element has done its job.
+    this.queue.next();
+  }
+}
+```
+
+*./index.js*
+```
+const queue = new Queue();
+const listeners = reuire('./listeners.js');
+
+// Connect to desired server.
+const socket = someServer.connect();
+
+socket.on('data', function (data) {
+  // Trigger `data` event listener if server respond.
+  queue.trigger('data', data.toString('utf-8'));
+});
+
+socket.on('error', function (error) {
+  // Trigger error if something went wrong.
+  queue.trigger('error', error)
+});
+
+// Add our operations to queue.
+queue.push(listeners, {
+  socket: socket,
+  command: 'Hello world!',
+  data: ''
+});
+queue.push(listeners, {
+  socket: socket,
+  command: 'Bring me some tea',
+  data: ''
+});
+
+```
