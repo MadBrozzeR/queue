@@ -236,7 +236,7 @@ module.exports = {
 *./index.js*
 ```
 const queue = new Queue();
-const listeners = require('./listeners.js');
+const operation = require('./operation.js');
 
 // Connect to desired server.
 const socket = someServer.connect();
@@ -252,12 +252,12 @@ socket.on('error', function (error) {
 });
 
 // Add our operations to queue.
-queue.push(listeners, {
+queue.push(operation, {
   socket: socket,
   command: 'Hello world!',
   data: ''
 });
-queue.push(listeners, {
+queue.push(operation, {
   socket: socket,
   command: 'Bring me some tea',
   data: ''
