@@ -14,7 +14,7 @@ it can pass control to the next operation in queue.
 ## Queue instance
 
 Queue instance is an entry point and communicate interface for external processes.
-Constructor doesn't accept any arguments.
+Constructor doesn't accept any argument.
 
 ```
 const queue = new Queue();
@@ -48,6 +48,8 @@ to that listener as an argument.
 
 *data* - data that is being passed as a listener's argument.
 
+*returns* result of event listener or `null`.
+
 ### queue.next
 ```
 queue.next(data?);
@@ -58,12 +60,16 @@ it's `init` event listener with `data` as an argument, if `data` was provided.
 
 *data* - optional data that can be sent to next Element instance.
 
+*returns* next element in queue becoming current one or `null` if there is no elements left.
+
 ### queue.clear
 ```
 queue.clear();
 ```
 
 Simply clears all elements from queue. Usually in case of an error.
+
+*returns* queue (itself).
 
 ### queue.isEmpty
 
@@ -120,13 +126,16 @@ const listeners = {
 };
 ```
 
-Two given events are standard ones: `init` event triggers at the moment previous element leaves the queue and this
-element is becoming current; `timeout` event triggers when `element.setTimeout` method was set, and timeout has expired.
-All other events are custom. They can be defined and triggered by your will.
+Two given events are standard ones: `init` event triggers at the moment previous element leaves the queue
+and this element is becoming current; `timeout` event triggers when `element.setTimeout` method was set,
+and timeout has expired. All other events are custom. They can be defined and triggered by your will.
+In general, all events are optional. If you don't need to perform any action as `init` event (though I don't
+really know why would you need it), then you can simply omit it from listener list.
 
 When queue triggers event of some type it makes its way into correspondant listener of current Element instance,
 which in its turn should decide how to deal with this event. Some data may be passed into callback as an argument,
-and function context (`this`) is a link to current Element in queue.
+and function context (`this`) is a link to current Element in queue. If event of some type was triggered, but
+there is no listener attached to this type of event, then it will be ignored.
 
 It's a good idea to keep each set of event listeners in separated file, as distinct operation type.
 
@@ -151,7 +160,7 @@ At the same time only one timeout is allowed. The next timer that been set clear
 element.resetTimeout();
 ```
 
-Restart timeout that was set earlier without triggering `timeout` event.
+Restart timer that was set earlier without triggering `timeout` event.
 
 ### element.clearTimeout
 
@@ -178,14 +187,14 @@ module.exports = {
       // Set timeout for server response in case of network problems.
       this.setTimeout(5000, 'Server did not respond in time');
     } catch (error) {
-      // If there was problem with writing into socket (connection interrupted), then trigger error.
-      this.queue.trigger(error);
+      // If there was problem with writing into socket (connection interrupted), then trigger an error.
+      this.queue.trigger('error', error);
     }
   },
 
   // Timeout will be triggered if server did not respond in time.
   timeout: function (message) {
-    this.queue.trigger(error, new Error(message));
+    this.queue.trigger('error', new Error(message));
   },
 
   // Event to be triggered if server respond with some data.
@@ -199,7 +208,7 @@ module.exports = {
         this.queue.trigger('success', this.params.data);
       }
     } else {
-      // Response is incomlete. Wait for next chunk and restart timer.
+      // Response is incomplete. Restart timer and wait for next chunk.
       this.resetTimeout();
     }
   },
@@ -209,10 +218,8 @@ module.exports = {
     // Display error.
     console.error('Error occured:', error);
 
-    // Clear queue, because process failed.
-    this.queue.clear();
-    // Tell to queue that this element has done its job.
-    this.queue.next();
+    // Clear queue, because process failed, and tell it that this element has done its job.
+    this.queue.clear().next();
   },
 
   // Event triggered in case of success.
@@ -229,7 +236,7 @@ module.exports = {
 *./index.js*
 ```
 const queue = new Queue();
-const listeners = reuire('./listeners.js');
+const listeners = require('./listeners.js');
 
 // Connect to desired server.
 const socket = someServer.connect();

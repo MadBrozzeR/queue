@@ -22,6 +22,7 @@ Queue.prototype.next = function (data) {
   const element = this.queue.shift();
   element && element.clearTimeout();
   this.queue[0] ? this.trigger(INIT, data) : (this.onEnd && this.onEnd(data));
+  return this.queue[0] || null;
 };
 Queue.prototype.clear = function () {
   this.queue = [];
