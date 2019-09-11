@@ -38,9 +38,27 @@ const elements = [
   }
 ];
 
-const queue = new Queue();
+let order = 0;
+const queue = new Queue.NetQueue();
+const load = new Queue.LoadQueue(3, {
+  init: function (params) {
+    setTimeout(this.done.bind(this), params.delay);
+  },
+  done: function () {
+    test('Should be called in order ' + this.params.order, this.params.order, ++order);
+  },
+  end: function () {
+    test('Should be called at the end of load queue', true, true);
+  }
+});
 queue.onEnd = function () {
   test('onEnd handler should be triggered in the end', true, true);
+
+  load.push({order: 3, delay: 50});
+  load.push({order: 1, delay: 20});
+  load.push({order: 4, delay: 70});
+  load.push({order: 2, delay: 20});
+  load.push({order: 5, delay: 40});
 }
 
 queue.push(elements[0]);

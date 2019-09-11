@@ -3,7 +3,7 @@
 Simple asynchronous queue manager. Main purpose is to be used for network packet management.
 But it still can solve various tasks other than that.
 
-## Principles
+## NetQueue
 
 Queue is a main instance managing all the process. All external processes communicate with this instance,
 not with certain operations in queue.
@@ -11,13 +11,15 @@ When external process triggers some event, Queue instance registers it and send 
 which should decide how to deal whith each event type. After current operation decides whether its job is done,
 it can pass control to the next operation in queue.
 
-## Queue instance
+### NetQueue instance
 
-Queue instance is an entry point and communicate interface for external processes.
+NetQueue instance is an entry point and communicate interface for external processes.
 Constructor doesn't accept any argument.
 
 ```
-const queue = new Queue();
+const NetQueue = require('mbr-queue').NetQueue;
+
+const queue = new NetQueue();
 ```
 
 ### queue.push
@@ -263,4 +265,19 @@ queue.push(operation, {
   data: ''
 });
 
+```
+
+## LoadQueue
+
+This type of queue executes several operations in order, but not more then `queue.max` value.
+For example, if you with do download some resources from remote server, but it would jam your network channel.
+You can download simultaniously 5 resources only, and start new download only when previous one is finished.
+This is exactly what LoadQueue for.
+
+### LoadQueue instance
+
+```
+const LoadQueue = require('mbr-queue').LoadQueue;
+
+const queue = new LoadQueue(maxCount, listeners);
 ```
