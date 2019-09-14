@@ -1,9 +1,9 @@
-function Element (params, queue) {
+function QueueElement (params, queue) {
   this.params = params;
   this.queue = queue;
 }
 
-Element.prototype.done = function elementDone () {
+QueueElement.prototype.done = function elementDone () {
   const queue = this.queue;
   const index = queue.current.indexOf(this);
 
@@ -30,7 +30,7 @@ function Queue (max, listeners = {}) {
 }
 
 Queue.prototype.push = function queuePush (element) {
-  this.queue.push(new Element(element, this));
+  this.queue.push(new QueueElement(element, this));
   start(this);
 };
 

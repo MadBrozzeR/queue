@@ -269,15 +269,58 @@ queue.push(operation, {
 
 ## LoadQueue
 
-This type of queue executes several operations in order, but not more then `queue.max` value.
-For example, if you with do download some resources from remote server, but it would jam your network channel.
-You can download simultaniously 5 resources only, and start new download only when previous one is finished.
-This is exactly what LoadQueue for.
+This type of queue picks several operations from itself to execute simultaniously, but not more then `queue.max` value,
+all other operations wait for their order. For example, if you wish to download a lot of resources from remote server,
+but it would jam your network channel. You can download simultaniously 5 resources only, and start new download
+only when one of previous is finished. This is exactly what LoadQueue for.
 
 ### LoadQueue instance
 
 ```
 const LoadQueue = require('mbr-queue').LoadQueue;
 
-const queue = new LoadQueue(maxCount, listeners);
+const queue = new LoadQueue(maxCount = 1, listeners = {});
 ```
+
+*maxCount* - Optional. Maximum number of simultanious operations.
+
+*listeners* - Optional. Set of listeners triggered on certain events.
+
+### queue.listeners
+
+```
+const listeners = {
+  /**
+   * Event is triggered when element is picked from queue.
+   * @param { any } params - Set of farameters that passed to queue element when pushed.
+   * @this - Element instance picked from queue.
+   */
+  init: function (params) {
+    // There we should eventually call `this.done()` function to notify parent queue about finished job and
+    // to proceed with next operation in queue.
+  },
+
+  /**
+   * Event is triggered when one of elements finishes its job.
+   * @param {any} result - set of arguments passed to `element.done()` function.
+   * @this - Element instance that just finished its job.
+   */
+  done: function (...result) {},
+
+  /**
+   * Event is triggered when all elements in queue finished their jobs.
+   * @this - parent queue.
+   */
+   end: function () {}
+};
+```
+
+### queue.push
+
+Push new operation into queue.
+
+```
+queue.push(params);
+```
+
+*params* - set of params that will be passed to `init` listener function.
