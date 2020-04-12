@@ -91,6 +91,22 @@ Callback is being called when queue.next() is called, but there is no more eleme
 
 `data` is a parameter passed to `queue.next` method as an argument.
 
+### queue.debug
+
+```
+queue.debug = function (type, element, data) { ... }
+```
+
+Callback is being called on different queue events: push, trigger, next, clear. Uses current queue instance
+as a context (this).
+
+*type* - event type (one of: 'push', 'trigger:[eventType]', 'shift', 'clear');
+
+*element* - current element action is performed on;
+
+*data* - additional provided data. For `push` is element parameters (same as element.params),
+for `trigger` and `next` is provided data.
+
 ## Element instance
 
 Operations in queue are Element instances.
