@@ -2,8 +2,10 @@ const TIMEOUT = 'timeout';
 
 function Element (queue, listeners, params) {
   this.queue = queue;
+  this.data = null;
   this.listeners = listeners;
   this.params = params;
+  this.next = null;
 
   this.timeout = null;
 }
